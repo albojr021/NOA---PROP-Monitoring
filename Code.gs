@@ -389,8 +389,10 @@ function getData() {
       endDate: row[8],
       kindOfNoa: row[9],
       sector: row[12],
+      turnAroundTime: row[20], 
       refNo: row[23],
       pdfLink: row[24],
+      disapprovalReason: row[25], 
       status: status
     };
   })
