@@ -331,12 +331,23 @@ function getData() {
   const wsAction = ssAction.getSheetByName("LE UNIFICADO");
   
   let validRefsInUnificado = new Set();
+  let actionDetailsMap = new Map(); // Store details by RefNo
+
   const lastRowAction = wsAction.getLastRow();
   
   if (lastRowAction > 1) {
-    const actionData = wsAction.getRange(2, 1, lastRowAction - 1).getDisplayValues(); 
+    const actionData = wsAction.getRange(2, 1, lastRowAction - 1, 20).getDisplayValues();
+    
     actionData.forEach(r => {
-      if(r[0]) validRefsInUnificado.add(r[0].trim());
+      const refNo = r[0] ? r[0].trim() : "";
+      if(refNo) {
+        validRefsInUnificado.add(refNo);
+        // Map RefNo to Details
+        actionDetailsMap.set(refNo, {
+          timestamp: r[18], // Col S
+          email: r[19]      // Col T
+        });
+      }
     });
   }
   
@@ -357,14 +368,12 @@ function getData() {
     const colAE_ActionStatus = row[30]; 
 
     let status = "Pending";
-
     const colYString = colY_LinkOrStatus.toString().trim();
     const colYLower = colYString.toLowerCase();
 
     if (colYLower.includes("disapproved")) {
       status = "Disapproved";
     } else if (colYString !== "") {
-      
       const isRefValid = validRefsInUnificado.has(refNo);
       const isActionDoneInAE = colAE_ActionStatus && colAE_ActionStatus.toString().trim() !== "";
 
@@ -373,9 +382,17 @@ function getData() {
       } else {
         status = "Validated with Pending Action";
       }
-
     } else {
       status = "Pending";
+    }
+
+    let actionDoneBy = "";
+    let actionDate = "";
+    
+    if (actionDetailsMap.has(refNo)) {
+      const details = actionDetailsMap.get(refNo);
+      actionDoneBy = details.email;
+      actionDate = details.timestamp;
     }
 
     return {
@@ -389,11 +406,15 @@ function getData() {
       endDate: row[8],
       kindOfNoa: row[9],
       sector: row[12],
-      turnAroundTime: row[20], 
+      turnAroundTime: row[20], // Col U (TAT)
       refNo: row[23],
       pdfLink: row[24],
-      disapprovalReason: row[25], 
-      status: status
+      disapprovalReason: row[25], // Col Z
+      mspRefNo: row[30],          // Col AE (MSP Ref #)
+      status: status,
+      
+      actionDoneBy: actionDoneBy,
+      actionDate: actionDate
     };
   })
   .filter(item => item !== null);
