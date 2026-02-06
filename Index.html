@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOA Monitoring App</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    /* Custom Scrollbar */
+    .table-container::-webkit-scrollbar { height: 8px; width: 8px; }
+    .table-container::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+    
+    /* Animations */
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+    .slide-enter-active, .slide-leave-active { transition: all 0.3s ease; }
+    .slide-enter-from, .slide-leave-to { transform: translateY(20px); opacity: 0; }
+  </style>
+</head>
+<body class="bg-gray-50 text-sm font-sans">
+
+  <div id="app" class="relative min-h-screen flex flex-col">
+    
+    <transition name="fade">
+      <div v-if="authLoading" class="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p class="text-gray-500 font-semibold tracking-wider">Please wait...</p>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div v-if="alert.show" class="fixed inset-0 z-[250] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black bg-opacity-40" @click="alert.show = false"></div>
+        <div class="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full border-l-4" 
+             :class="alert.type === 'success' ? 'border-green-500' : 'border-red-500'">
+          <h3 class="font-bold text-lg mb-2" :class="alert.type === 'success' ? 'text-green-600' : 'text-red-600'">
+            {{ alert.type === 'success' ? 'Success' : 'Error' }}
+          </h3>
+          <p class="text-gray-600 mb-4">{{ alert.message }}</p>
+          <div class="flex justify-end">
+            <button @click="alert.show = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-medium">Close</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="slide" mode="out-in">
+    <div v-if="view === 'login'" class="flex-grow flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+        <div class="text-center mb-8">
+          <img src="https://d2nnykqiaju69u.cloudfront.net/pslife_photos/Maricel_temp/logos/megaworld%20lifestyel%20malls.png" class="h-16 mx-auto mb-4">
+          <h2 class="text-2xl font-bold text-gray-800">Welcome Back</h2>
+          <p class="text-gray-500 text-xs">Sign in to access your dashboard</p>
+        </div>
+
+        <form @submit.prevent="handleLogin" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">EMAIL / USERNAME</label>
+            <input v-model="loginForm.email" type="email" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+          </div>
+          
+          <div class="relative">
+            <label class="block text-xs font-bold text-gray-700 mb-1">PASSWORD</label>
+            <input :type="showPass ? 'text' : 'password'" v-model="loginForm.password" required class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+            <i @click="showPass = !showPass" class="fas absolute right-4 top-9 cursor-pointer text-gray-400 hover:text-gray-600" :class="showPass ? 'fa-eye-slash' : 'fa-eye'"></i>
+          </div>
+
+          <div class="flex items-center justify-between text-xs">
+            <label class="flex items-center text-gray-600 cursor-pointer">
+              <input v-model="loginForm.remember" type="checkbox" class="mr-2 rounded text-blue-600 focus:ring-blue-500"> Remember me
+            </label>
+            <a href="#" @click.prevent="view = 'forgot'" class="text-blue-600 hover:text-blue-800 font-semibold">Forgot Password?</a>
+          </div>
+
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg transform transition hover:-translate-y-0.5">
+            Sign In
+          </button>
+        </form>
+
+        <div class="mt-6 text-center text-xs text-gray-600">
+          Don't have an account? 
+          <a href="#" @click.prevent="initRegister" class="text-blue-600 font-bold hover:underline">Create Account</a>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="view === 'register'" class="flex-grow flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 py-10">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-8">
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+          <h2 class="text-2xl font-bold text-gray-800">Create Account</h2>
+          <button @click="view = 'login'" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+        </div>
+
+        <form @submit.prevent="handleRegister" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">FULL NAME</label>
+              <input v-model="regForm.name" type="text" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">EMAIL (USERNAME)</label>
+              <input v-model="regForm.email" type="email" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            
+            <div class="relative">
+              <label class="block text-xs font-bold text-gray-700 mb-1">PASSWORD</label>
+              <input :type="showRegPass ? 'text' : 'password'" v-model="regForm.password" required 
+                     class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              <i @click="showRegPass = !showRegPass" class="fas absolute right-3 top-8 cursor-pointer text-gray-400" :class="showRegPass ? 'fa-eye-slash' : 'fa-eye'"></i>
+              
+              <div class="mt-1 h-1 w-full bg-gray-200 rounded overflow-hidden">
+                <div class="h-full transition-all duration-300" :class="passwordStrength.color" :style="{width: passwordStrength.percent + '%'}"></div>
+              </div>
+              <p class="text-[10px] mt-1 text-gray-500">{{ passwordStrength.text }}</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">CONFIRM PASSWORD</label>
+              <input type="password" v-model="regForm.confirmPassword" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+              <p v-if="regForm.confirmPassword && regForm.password !== regForm.confirmPassword" class="text-red-500 text-[10px] mt-1">Passwords do not match</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+             <div>
+               <label class="block text-xs font-bold text-gray-700 mb-1">SECURITY QUESTION</label>
+               <select v-model="regForm.secQuestion" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                 <option value="" disabled>Select a question...</option>
+                 <option>What was your childhood nickname?</option>
+                 <option>What is the name of your favorite pet?</option>
+                 <option>In what city were you born?</option>
+               </select>
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-gray-700 mb-1">ANSWER</label>
+               <input v-model="regForm.secAnswer" type="text" required class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+             </div>
+
+             <div class="bg-gray-50 p-3 rounded border h-40 overflow-y-auto">
+               <label class="block text-xs font-bold text-gray-700 mb-2 sticky top-0 bg-gray-50 pb-1 border-b">SELECT PROPERTIES (DASHBOARD ACCESS)</label>
+               <div v-if="availableProperties.length === 0" class="text-xs text-gray-400 italic">Loading properties...</div>
+               <div v-for="prop in availableProperties" :key="prop" class="flex items-center mb-1">
+                 <input type="checkbox" :value="prop" v-model="regForm.properties" class="mr-2 text-blue-600 rounded">
+                 <span class="text-xs text-gray-600">{{ prop }}</span>
+               </div>
+             </div>
+          </div>
+
+          <div class="col-span-1 md:col-span-2 mt-4">
+             <button type="submit" :disabled="!isRegValid" class="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg shadow transition">
+               Create Account
+             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-else-if="view === 'forgot'" class="flex-grow flex items-center justify-center p-4 bg-gray-100">
+      <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-8">
+        <h3 class="text-xl font-bold mb-4 text-gray-800">Account Recovery</h3>
+        
+        <form @submit.prevent="handleRecovery">
+          <div v-if="recoveryStep === 1">
+            <label class="block text-xs font-bold text-gray-700 mb-1">ENTER YOUR EMAIL</label>
+            <input v-model="recoveryForm.email" type="email" required class="w-full px-3 py-2 border rounded mb-4">
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded font-bold">Find Account</button>
+          </div>
+
+          <div v-else-if="recoveryStep === 2">
+            <div class="bg-blue-50 p-3 rounded mb-4 border border-blue-100">
+               <span class="text-xs text-blue-600 font-bold">Question:</span>
+               <p class="text-gray-800 text-sm">{{ recoveryForm.question }}</p>
+            </div>
+            
+            <label class="block text-xs font-bold text-gray-700 mb-1">YOUR ANSWER</label>
+            <input v-model="recoveryForm.answer" type="text" required class="w-full px-3 py-2 border rounded mb-3">
+            
+            <label class="block text-xs font-bold text-gray-700 mb-1">NEW PASSWORD</label>
+            <input v-model="recoveryForm.newPassword" type="password" required class="w-full px-3 py-2 border rounded mb-4">
+            
+            <button type="submit" class="w-full bg-green-600 text-white py-2 rounded font-bold">Reset Password</button>
+          </div>
+        </form>
+        
+        <button @click="view = 'login'" class="mt-4 text-xs text-gray-500 underline w-full text-center">Back to Login</button>
+      </div>
+    </div>
+
+    </transition>
+    
+    <div v-if="view === 'dashboard'" class="flex-grow flex flex-col">
+      <div class="bg-white shadow-sm border-b px-6 py-2 flex justify-between items-center z-50">
+        <div class="flex items-center gap-4">
+          <div class="text-xs text-gray-500">
+            Logged in as: <span class="font-bold text-blue-600">{{ currentUser.name }}</span>
+          </div>
+          <button @click="openAddPropertyModal" class="text-[10px] bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded shadow transition flex items-center gap-1">
+            <i class="fas fa-plus-circle"></i> Add Property
+          </button>
+        </div>
+        <button @click="confirmLogout" class="text-red-500 hover:text-red-700 text-xs font-bold border border-red-200 rounded px-3 py-1 hover:bg-red-50 transition">
+          <i class="fas fa-sign-out-alt"></i> LOGOUT
+        </button>
+      </div>
+
+      <transition name="loader-fade">
+        <div v-if="isLoading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white">
+          <img src="https://d2nnykqiaju69u.cloudfront.net/pslife_photos/Maricel_temp/logos/megaworld%20lifestyel%20malls.png" 
+               alt="Logo" class="w-48 mb-4 animate-pulse">
+          <p class="text-gray-500 font-semibold tracking-wider">LOADING DATA...</p>
+        </div>
+      </transition>
+  
+      <transition name="modal">
+        <div v-if="showModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          
+          <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" @click="closeModal"></div>
+          
+          <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 transform transition-all" 
+               :class="modalAction.type === 'Contract' ? 'border-blue-600' : 'border-teal-600'">
+            
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"
+                 :class="modalAction.type === 'Contract' ? 'bg-blue-100 text-blue-600' : 'bg-teal-100 text-teal-600'">
+              <i class="fas fa-question text-xl"></i>
+            </div>
+  
+            <h3 class="text-lg leading-6 font-bold text-gray-800 text-center">
+              Confirmation Required
+            </h3>
+  
+            <div class="mt-3 px-2 text-center">
+              <p class="text-sm text-gray-500">
+                Are you sure you want to open the link for:
+              </p>
+              <p class="font-bold text-gray-800 text-base mt-2">
+                {{ modalAction.actionName }}
+              </p>
+              
+              <div class="mt-4 bg-gray-50 p-3 rounded border border-gray-200 text-xs text-left">
+                <div class="flex justify-between mb-1 border-b border-gray-200 pb-1">
+                  <span class="text-gray-500">Ref #:</span>
+                  <span class="font-bold text-gray-700">{{ modalAction.row?.refNo }}</span>
+                </div>
+                <div class="flex justify-between mt-1">
+                  <span class="text-gray-500">Payor:</span>
+                  <span class="font-bold text-gray-700 truncate max-w-[200px]">{{ modalAction.row?.payor }}</span>
+                </div>
+                 <div class="flex justify-between mt-1">
+                  <span class="text-gray-500">Kind:</span>
+                  <span class="font-bold text-blue-600">{{ modalAction.row?.kindOfNoa }}</span>
+                </div>
+              </div>
+            </div>
+  
+            <div class="mt-6 flex justify-center gap-3">
+              <button @click="closeModal" 
+                      class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-100 focus:outline-none transition">
+                Cancel
+              </button>
+              <button @click="proceedWithAction" 
+                      :class="modalAction.type === 'Contract' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-teal-600 hover:bg-teal-700'"
+                      class="px-4 py-2 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none transition flex items-center gap-2">
+                Yes, Proceed <i class="fas fa-external-link-alt"></i>
+              </button>
+            </div>
+  
+          </div>
+        </div>
+      </transition>
+      <transition name="modal">
+      <div v-if="showLogoutModal" class="fixed inset-0 z-[300] flex items-center justify-center p-4">
+        
+        <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" @click="showLogoutModal = false"></div>
+        
+        <div class="relative bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 border-t-4 border-red-500 transform transition-all">
+          
+          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 text-red-500 mb-4">
+            <i class="fas fa-sign-out-alt text-xl"></i>
+          </div>
+
+          <h3 class="text-lg leading-6 font-bold text-gray-800 text-center">
+            Sign Out?
+          </h3>
+
+          <div class="mt-2 px-2 text-center">
+            <p class="text-sm text-gray-500">
+              Are you sure you want to log out of your session?
+            </p>
+          </div>
+
+          <div class="mt-6 flex justify-center gap-3">
+            <button @click="showLogoutModal = false" 
+                    class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-100 focus:outline-none transition">
+              Cancel
+            </button>
+            
+            <button @click="handleLogout()" 
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none transition">
+              Yes, Log Out
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </transition>
+    <transition name="modal">
+      <div v-if="showAddPropModal" class="fixed inset-0 z-[300] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" @click="showAddPropModal = false"></div>
+        
+        <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-green-500">
+          
+          <h3 class="text-lg font-bold text-gray-800 mb-2">Request Additional Access</h3>
+          <p class="text-xs text-gray-500 mb-4">Select the properties you want to add to your account.</p>
+
+          <div class="bg-gray-50 p-3 rounded border h-48 overflow-y-auto mb-4">
+            <div v-if="availableProperties.length === 0" class="text-xs text-center p-4">Loading properties...</div>
+            
+            <div v-for="prop in availableProperties" :key="prop" class="flex items-center mb-2">
+              <input type="checkbox" :value="prop" v-model="selectedNewProps" 
+                    :disabled="userHasProperty(prop)"
+                    class="mr-2 text-green-600 rounded focus:ring-green-500">
+              <span class="text-xs" :class="userHasProperty(prop) ? 'text-gray-400 line-through' : 'text-gray-700'">
+                {{ prop }} <span v-if="userHasProperty(prop)" class="text-[9px] italic ml-1">(Already have)</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 mt-4 pt-4 border-t">
+            
+            <button @click="showAddPropModal = false" :disabled="isLoading" 
+                    class="px-4 py-2 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition">
+              Cancel
+            </button>
+            
+            <button @click="submitAddProperty" 
+                    :disabled="selectedNewProps.length === 0 || isLoading" 
+                    class="px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-70 disabled:cursor-wait flex items-center gap-2 shadow-sm transition">
+              
+              <span v-if="isLoading" class="flex items-center gap-2">
+                <svg class="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing Request...
+              </span>
+              
+              <span v-else>
+                Submit Request <i class="fas fa-paper-plane ml-1"></i>
+              </span>
+
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+    <transition name="modal">
+      <div v-if="showNotificationModal" class="fixed inset-0 z-[350] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm" @click="showNotificationModal = false"></div>
+        
+        <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-blue-600 animate-[bounceIn_0.5s]">
+          
+          <div class="text-center mb-4">
+            <div class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600 mb-3">
+              <i class="fas fa-bell text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800">Account Updates</h3>
+            <p class="text-xs text-gray-500">Recent changes to your property access requests.</p>
+          </div>
+
+          <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            
+            <div v-if="notifications.approved.length > 0" class="bg-green-50 rounded-lg p-3 border border-green-200">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-check-circle text-green-600"></i>
+                <span class="text-sm font-bold text-green-700">Approved Access</span>
+              </div>
+              <ul class="list-disc list-inside text-xs text-green-800 ml-1">
+                <li v-for="prop in notifications.approved" :key="'app-'+prop">{{ prop }}</li>
+              </ul>
+            </div>
+
+            <div v-if="notifications.rejected.length > 0" class="bg-red-50 rounded-lg p-3 border border-red-200">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-times-circle text-red-600"></i>
+                <span class="text-sm font-bold text-red-700">Disapproved / Rejected</span>
+              </div>
+              <ul class="list-disc list-inside text-xs text-red-800 ml-1">
+                <li v-for="prop in notifications.rejected" :key="'rej-'+prop">{{ prop }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-6">
+            <button @click="showNotificationModal = false" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold shadow transition">
+              Acknowledge & Close
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </transition>
+  
+      <div v-if="!isLoading" class="p-6 h-screen flex flex-col">
+        
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-center">
+          <div class="flex items-center gap-3">
+             <img src="https://d2nnykqiaju69u.cloudfront.net/pslife_photos/Maricel_temp/logos/megaworld%20lifestyel%20malls.png" class="h-12">
+             <h1 class="text-2xl font-bold text-gray-800">NOA Monitoring Dashboard</h1>
+          </div>
+          <div class="mt-4 md:mt-0 text-gray-500">
+            <button @click="fetchData" class="mr-4 text-blue-600 hover:text-blue-800 text-xs font-bold underline"><i class="fas fa-sync"></i> REFRESH DATA</button>
+            Total Rows: <span class="font-bold text-gray-800">{{ filteredData.length }}</span>
+          </div>
+        </div>
+  
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          
+          <div @click="activeStatus = 'Pending'" 
+               :class="['cursor-pointer p-4 rounded-lg shadow-sm border-l-4 transition transform hover:scale-105', activeStatus === 'Pending' ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-200 shadow-md' : 'bg-white border-orange-300']">
+            <div class="text-gray-500 text-[10px] uppercase font-bold flex items-center gap-2">
+              <i class="fas fa-clock text-orange-400"></i> For Checking
+            </div>
+            <div class="text-2xl font-bold text-orange-600 mt-2">{{ countStatus('Pending') }}</div>
+            <div class="text-xs text-gray-400 mt-1">Pending NOA Validation of TK</div>
+          </div>
+  
+          <div class="rounded-lg shadow-sm border-l-4 transition transform hover:scale-105 overflow-hidden flex flex-col bg-white"
+               :class="[
+                 activeStatus === 'Validated with Pending Action' ? 'border-green-500 ring-2 ring-green-200 shadow-md' : 
+                 activeStatus === 'Validated with Action Done' ? 'border-indigo-500 ring-2 ring-indigo-200 shadow-md' : 
+                 'border-gray-300'
+               ]">
+            
+            <div class="bg-gray-50 p-2 border-b border-gray-100 text-center font-bold text-gray-600 text-[10px] tracking-widest uppercase flex items-center justify-center gap-2">
+              <i class="fas fa-check-double text-gray-400"></i> VALIDATED NOA
+            </div>
+            
+            <div class="flex flex-1 divide-x divide-gray-100">
+              
+              <div @click="activeStatus = 'Validated with Pending Action'"
+                   class="flex-1 p-3 text-center cursor-pointer transition flex flex-col justify-center relative group overflow-hidden"
+                   :class="activeStatus === 'Validated with Pending Action' ? 'bg-green-50' : 'hover:bg-gray-50 bg-white'">
+                 
+                 <div v-if="activeStatus === 'Validated with Pending Action'" class="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
+  
+                 <div class="text-2xl font-bold leading-none mb-1 transition"
+                      :class="activeStatus === 'Validated with Pending Action' ? 'text-green-700' : 'text-green-600/60 group-hover:text-green-600'">
+                   {{ countStatus('Validated with Pending Action') }}
+                 </div>
+                 <div class="text-[9px] font-bold uppercase leading-tight transition"
+                      :class="activeStatus === 'Validated with Pending Action' ? 'text-green-800' : 'text-gray-400 group-hover:text-gray-500'">
+                   Pending Action <br> of Property
+                 </div>
+              </div>
+  
+              <div @click="activeStatus = 'Validated with Action Done'"
+                   class="flex-1 p-3 text-center cursor-pointer transition flex flex-col justify-center relative group overflow-hidden"
+                   :class="activeStatus === 'Validated with Action Done' ? 'bg-indigo-50' : 'hover:bg-gray-50 bg-white'">
+                 
+                 <div v-if="activeStatus === 'Validated with Action Done'" class="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+  
+                 <div class="text-2xl font-bold leading-none mb-1 transition"
+                      :class="activeStatus === 'Validated with Action Done' ? 'text-indigo-700' : 'text-indigo-600/60 group-hover:text-indigo-600'">
+                   {{ countStatus('Validated with Action Done') }}
+                 </div>
+                 <div class="text-[9px] font-bold uppercase leading-tight transition"
+                      :class="activeStatus === 'Validated with Action Done' ? 'text-indigo-800' : 'text-gray-400 group-hover:text-gray-500'">
+                   Action Done <br> by Property
+                 </div>
+              </div>
+  
+            </div>
+          </div>
+  
+          <div @click="activeStatus = 'Disapproved'" 
+               :class="['cursor-pointer p-4 rounded-lg shadow-sm border-l-4 transition transform hover:scale-105', activeStatus === 'Disapproved' ? 'bg-red-50 border-red-500 ring-2 ring-red-200 shadow-md' : 'bg-white border-red-300']">
+            <div class="text-gray-500 text-[10px] uppercase font-bold flex items-center gap-2">
+              <i class="fas fa-ban text-red-400"></i> Disapproved by TK
+            </div>
+            <div class="text-2xl font-bold text-red-600 mt-2">{{ countStatus('Disapproved') }}</div>
+            <div class="text-xs text-gray-400 mt-1">Disapproved NOAs</div>
+          </div>
+  
+        </div>
+  
+        <div class="bg-white p-4 rounded-lg shadow-sm mb-4 border border-gray-200 flex flex-wrap gap-4">
+          
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-bold text-gray-500 mb-1">PROPERTY</label>
+            <select v-model="filters.property" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+              <option value="">All Properties</option>
+              <option v-for="opt in uniqueProperties" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </div>
+  
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-bold text-gray-500 mb-1">SECTOR</label>
+            <select v-model="filters.sector" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+              <option value="">All Sectors</option>
+              <option v-for="opt in uniqueSectors" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </div>
+  
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-bold text-gray-500 mb-1">PAYOR COMPANY</label>
+            <select v-model="filters.payor" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+              <option value="">All Payors</option>
+              <option v-for="opt in uniquePayors" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </div>
+  
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-bold text-gray-500 mb-1">MSP COMPANY</label>
+            <select v-model="filters.msp" class="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+              <option value="">All MSPs</option>
+              <option v-for="opt in uniqueMsps" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </div>
+          
+          <div class="flex items-end">
+            <button @click="resetFilters" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-sm font-semibold transition">
+              Reset
+            </button>
+          </div>
+        </div>
+  
+        <div class="bg-white rounded-lg shadow flex-grow overflow-hidden border border-gray-200 flex flex-col">
+          <div class="overflow-auto table-container flex-grow">
+            <table class="min-w-full text-left border-collapse">
+              <thead class="bg-gray-100 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">Status</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">Action</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Timestamp</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Ref #</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Property / Sector</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Companies</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Details</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">NOA Link</th>
+                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Released By</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="(row, index) in filteredData" :key="index" class="hover:bg-blue-50 transition">
+                  
+                  <td class="p-3 align-top">
+                    <span :class="getStatusBadge(row.status)" class="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border inline-block text-center min-w-[80px]">
+                      {{ row.status.replace('Validated with ', '') }}
+                    </span>
+                  </td>
+  
+                  <td class="p-3 align-top">
+                    <div v-if="row.status.includes('Validated')" class="flex flex-col gap-2">
+                      
+                      <button v-if="shouldShowContractBtn(row.kindOfNoa)" 
+                              @click="handleAction('Contract', row)" 
+                              class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 transition shadow w-full justify-center">
+                        <i class="fas fa-file-contract"></i> Req. Contract
+                      </button>
+                      
+                      <button v-if="shouldShowRateBtn(row.kindOfNoa)" 
+                              @click="handleAction('Rate', row)" 
+                              class="bg-teal-600 hover:bg-teal-700 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 transition shadow w-full justify-center">
+                        <i class="fas fa-percent"></i> Req. Rate Amend
+                      </button>
+  
+                      <div v-if="!shouldShowContractBtn(row.kindOfNoa) && !shouldShowRateBtn(row.kindOfNoa)" class="text-[10px] text-gray-400 text-center italic">
+                        Check NOA Type
+                      </div>
+  
+                      <div v-if="row.status === 'Validated with Action Done'" class="text-[9px] text-green-600 text-center font-bold mt-1">
+                        <i class="fas fa-check-circle"></i> Submitted
+                      </div>
+  
+                    </div>
+                    <span v-else class="text-gray-300 text-xs italic">No Action</span>
+                  </td>
+  
+                  <td class="p-3 text-xs text-gray-600 align-top whitespace-nowrap">
+                     {{ row.timestamp }}
+                  </td>
+  
+                  <td class="p-3 text-xs font-semibold text-gray-800 align-top">
+                     {{ row.refNo }}
+                  </td>
+  
+                  <td class="p-3 align-top">
+                    <div class="text-xs font-bold text-gray-800">{{ row.property }}</div>
+                    <div class="text-[10px] text-gray-500 uppercase">{{ row.sector }}</div>
+                  </td>
+  
+                  <td class="p-3 align-top max-w-[200px]">
+                    <div class="text-xs text-gray-700"><span class="font-semibold text-gray-500">Payor:</span> {{ row.payor }}</div>
+                    <div class="text-xs text-gray-700 mt-1"><span class="font-semibold text-gray-500">MSP:</span> {{ row.msp }}</div>
+                  </td>
+  
+                  <td class="p-3 align-top min-w-[150px]">
+                    <div class="text-xs font-semibold text-indigo-600 mb-1">{{ row.kindOfNoa }}</div>
+                    <div class="text-xs text-gray-600">{{ row.serviceType }}</div>
+                    <div class="text-[10px] text-gray-400 mt-1">
+                      {{ row.startDate }} <i class="fas fa-arrow-right mx-1"></i> {{ row.endDate }}
+                    </div>
+                  </td>
+  
+                  <td class="p-3 align-top text-center">
+                    <a v-if="row.pdfLink" :href="row.pdfLink" target="_blank" class="text-red-500 hover:text-red-700 text-lg" title="View PDF">
+                      <i class="fas fa-file-pdf"></i>
+                    </a>
+                    <span v-else class="text-gray-300">-</span>
+                  </td>
+  
+                  <td class="p-3 text-xs text-gray-600 align-top">
+                    {{ row.releasedBy }}
+                  </td>
+  
+                </tr>
+                
+                <tr v-if="filteredData.length === 0">
+                  <td colspan="9" class="p-8 text-center text-gray-400">
+                    <i class="fas fa-search text-3xl mb-2"></i>
+                    <p>No records found based on current filters.</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
+
+    createApp({
+      setup() {
+        // --- AUTH & VIEW STATE ---
+        const view = ref('login'); // 'login', 'register', 'forgot', 'dashboard'
+        const authLoading = ref(true); // Checks session on load
+        const currentUser = ref(null);
+        const availableProperties = ref([]);
+        
+        // --- DASHBOARD STATE ---
+        const isLoading = ref(false); // Data loading
+        const isRefreshing = ref(false); 
+        const allData = ref([]);
+        const activeStatus = ref('Pending'); 
+        
+        // --- FORMS ---
+        const loginForm = ref({ email: '', password: '', remember: false });
+        const regForm = ref({ name: '', email: '', password: '', confirmPassword: '', secQuestion: '', secAnswer: '', properties: [] });
+        const recoveryForm = ref({ email: '', question: '', answer: '', newPassword: '' });
+        const recoveryStep = ref(1);
+
+        // --- UI ---
+        const showPass = ref(false);
+        const showRegPass = ref(false);
+        const alert = ref({ show: false, type: '', message: '' });
+        const showLogoutModal = ref(false);
+        
+        // --- FILTERS & MODALS (From Original) ---
+        const filters = ref({ property: "", sector: "", payor: "", msp: "" });
+        const showModal = ref(false);
+        const modalAction = ref({ type: '', actionName: '', row: null, url: '' });
+
+        // --- CONSTANTS ---
+        const LINK_CONTRACT = "https://script.google.com/a/macros/megaworld-lifestyle.com/s/AKfycbzaxLUWAvcWwJ0xDTw4QCb0wMdX1efJ9XVXHKnN02eMRl2_8TVIzD8Gv8pVpJ0Orhw/exec";
+        const LINK_RATE = "https://script.google.com/a/macros/megaworld-lifestyle.com/s/AKfycbz3perZUpwMKA7B5v9AMOX11Gs2qkibJ1jLSO64uI4mtRDA7tZ5b8_Um0K4onxDdrC0/exec";
+
+        // --- REACTIVE VARIABLES ---
+        const showAddPropModal = ref(false);
+        const selectedNewProps = ref([]);
+        const showNotificationModal = ref(false);
+        const notifications = ref({ approved: [], rejected: [] });
+
+        // --- AUTO LOGOUT / IDLE TIMER ---
+        let idleTimer = null;
+        const resetIdleTimer = () => {
+          if (view.value !== 'dashboard') return;
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            handleLogout("Session expired due to inactivity (10 mins).");
+          }, 600 * 1000);
+        };
+
+        const setupIdleListeners = () => {
+          window.onmousemove = resetIdleTimer;
+          window.onkeydown = resetIdleTimer;
+          window.onclick = resetIdleTimer;
+        };
+
+        // --- COMPUTED: AUTH ---
+        const passwordStrength = computed(() => {
+          const p = regForm.value.password;
+          let strength = 0;
+          if (p.length > 5) strength++;
+          if (p.length > 7) strength++;
+          if (/[A-Z]/.test(p)) strength++;
+          if (/[0-9]/.test(p)) strength++;
+          if (/[^A-Za-z0-9]/.test(p)) strength++;
+          
+          if (strength <= 2) return { percent: 33, color: 'bg-red-500', text: 'Weak' };
+          if (strength <= 4) return { percent: 66, color: 'bg-yellow-500', text: 'Medium' };
+          return { percent: 100, color: 'bg-green-500', text: 'Strong' };
+        });
+
+        const isRegValid = computed(() => {
+          return regForm.value.name && regForm.value.email && regForm.value.password && 
+                 (regForm.value.password === regForm.value.confirmPassword) &&
+                 regForm.value.secQuestion && regForm.value.secAnswer;
+        });
+
+        // --- AUTH FUNCTIONS ---
+
+        const showAlert = (type, msg) => {
+          alert.value = { show: true, type, message: msg };
+          setTimeout(() => { alert.value.show = false }, 3000);
+        };
+
+        const checkSession = () => {
+          const token = getAuthToken(); 
+          if (!token) {
+            authLoading.value = false;
+            return;
+          }
+
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res.valid) {
+                currentUser.value = res.user;
+                view.value = 'dashboard';
+                fetchData();
+                setupIdleListeners();
+                resetIdleTimer();
+
+                checkAndShowNotifications(res.alerts); 
+
+              } else {
+                localStorage.removeItem('noa_auth_token');
+              }
+              authLoading.value = false;
+            })
+            .verifySession(token);
+        };
+
+        const handleLogin = () => {
+          authLoading.value = true;
+          google.script.run
+            .withSuccessHandler(res => {
+              authLoading.value = false;
+              if (res.success) {
+                
+                if (loginForm.value.remember) {
+                  localStorage.setItem('noa_auth_token', res.token);
+                } else {
+                  sessionStorage.setItem('noa_auth_token', res.token);
+                }
+
+                currentUser.value = res.user;
+                view.value = 'dashboard';
+                fetchData();
+                setupIdleListeners();
+                resetIdleTimer();
+                
+                checkAndShowNotifications(res.alerts); 
+
+              } else {
+                showAlert('error', res.message);
+              }
+            })
+            .loginUser(JSON.parse(JSON.stringify(loginForm.value)));
+        };
+
+        const confirmLogout = () => {
+          showLogoutModal.value = true;
+        };
+
+        const handleLogout = (msg) => {
+          showLogoutModal.value = false;
+          const message = (typeof msg === 'string') ? msg : null;
+
+          localStorage.removeItem('noa_auth_token');
+          sessionStorage.removeItem('noa_auth_token');
+
+          currentUser.value = null;
+          view.value = 'login';
+          loginForm.value.password = '';
+          
+          if (message) showAlert('error', message);
+        };
+
+        const initRegister = () => {
+          view.value = 'register';
+          // Fetch properties for checkboxes
+          google.script.run.withSuccessHandler(props => {
+            availableProperties.value = props;
+          }).getPropertyOptions();
+        };
+
+        const handleRegister = () => {
+          authLoading.value = true;
+          google.script.run
+            .withSuccessHandler(res => {
+              authLoading.value = false;
+              if (res.success) {
+                regForm.value = { name: '', email: '', password: '', confirmPassword: '', secQuestion: '', secAnswer: '', properties: [] }; 
+                
+                alert.value = { 
+                  show: true, 
+                  type: 'success', 
+                  message: res.message 
+                };
+                
+                setTimeout(() => {
+                   view.value = 'login';
+                }, 3000);
+                
+              } else {
+                showAlert('error', res.message);
+              }
+            })
+            .registerUser(JSON.parse(JSON.stringify(regForm.value)));
+        };
+
+        const handleRecovery = () => {
+          authLoading.value = true;
+          google.script.run
+            .withSuccessHandler(res => {
+              authLoading.value = false;
+              if (res.success) {
+                if (res.step === 'question') {
+                  recoveryForm.value.question = res.question;
+                  recoveryStep.value = 2;
+                } else {
+                  showAlert('success', res.message);
+                  view.value = 'login';
+                  recoveryStep.value = 1;
+                  recoveryForm.value = { email: '', question: '', answer: '', newPassword: '' };
+                }
+              } else {
+                showAlert('error', res.message);
+              }
+            })
+            .recoverPassword(recoveryForm.value.email, recoveryForm.value.question, recoveryForm.value.answer, recoveryForm.value.newPassword);
+        };
+
+        // --- DASHBOARD DATA FETCHING (Unchanged Logic, added Property Filter) ---
+        let pollingInterval = null;
+
+        const fetchData = (isBackground = false) => {
+          if (!currentUser.value) return; // Guard clause
+          if (!isBackground) isLoading.value = true;
+          isRefreshing.value = true;
+
+          google.script.run
+            .withSuccessHandler((response) => {
+              if (JSON.stringify(response) !== JSON.stringify(allData.value)) {
+                 allData.value = response;
+              }
+              isLoading.value = false;
+              isRefreshing.value = false;
+            })
+            .withFailureHandler((err) => {
+              console.error(err);
+              if (!isBackground) showAlert("error", "Error fetching data.");
+              isLoading.value = false;
+              isRefreshing.value = false;
+            })
+            .getData();
+        };
+
+        // --- DASHBOARD COMPUTED PROPERTIES (Updated Filtering) ---
+        const uniqueProperties = computed(() => {
+          if (!currentUser.value) return [];
+          // Filter Unique Properties based on what the user is allowed to see
+          let validProps = allData.value.map(d => d.property).filter(Boolean);
+          if (currentUser.value.properties && currentUser.value.properties.length > 0) {
+             validProps = validProps.filter(p => currentUser.value.properties.includes(p));
+          }
+          return [...new Set(validProps)].sort();
+        });
+
+        const uniqueSectors = computed(() => [...new Set(allData.value.map(d => d.sector).filter(Boolean))].sort());
+        const uniquePayors = computed(() => [...new Set(allData.value.map(d => d.payor).filter(Boolean))].sort());
+        const uniqueMsps = computed(() => [...new Set(allData.value.map(d => d.msp).filter(Boolean))].sort());
+
+        const filteredData = computed(() => {
+          let data = allData.value;
+
+          // 1. SECURITY FILTER (Property based on User)
+          if (currentUser.value && currentUser.value.properties && currentUser.value.properties.length > 0) {
+            data = data.filter(item => currentUser.value.properties.includes(item.property));
+          }
+
+          // 2. DASHBOARD FILTERS
+          if (activeStatus.value !== 'All') {
+             data = data.filter(item => item.status === activeStatus.value);
+          }
+          if (filters.value.property) data = data.filter(item => item.property === filters.value.property);
+          if (filters.value.sector) data = data.filter(item => item.sector === filters.value.sector);
+          if (filters.value.payor) data = data.filter(item => item.payor === filters.value.payor);
+          if (filters.value.msp) data = data.filter(item => item.msp === filters.value.msp);
+
+          return data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        });
+
+        // --- HELPERS (Unchanged) ---
+        const countStatus = (status) => {
+           // Must check against filtered data for accuracy based on user permissions
+           let data = allData.value;
+           if (currentUser.value && currentUser.value.properties && currentUser.value.properties.length > 0) {
+              data = data.filter(item => currentUser.value.properties.includes(item.property));
+           }
+           return data.filter(d => d.status === status).length;
+        };
+        const getStatusBadge = (status) => {
+          switch(status) {
+            case 'Pending': return 'bg-orange-100 text-orange-600 border-orange-200';
+            case 'Validated with Pending Action': return 'bg-green-100 text-green-600 border-green-200';
+            case 'Validated with Action Done': return 'bg-indigo-100 text-indigo-600 border-indigo-200';
+            case 'Disapproved': return 'bg-red-100 text-red-600 border-red-200';
+            default: return 'bg-gray-100 text-gray-600 border-gray-200';
+          }
+        };
+        const resetFilters = () => {
+          filters.value = { property: "", sector: "", payor: "", msp: "" };
+          activeStatus.value = 'All';
+        };
+        const shouldShowContractBtn = (kind) => {
+          if (!kind) return true; 
+          const k = kind.toString().toUpperCase();
+          return k.includes("NEW BID") || k.includes("RENEWAL") || k.includes("EXTENSION") || k.includes("ADDLOA");
+        };
+        const shouldShowRateBtn = (kind) => {
+          if (!kind) return false;
+          const k = kind.toString().toUpperCase();
+          return k.includes("RA") || k.includes("RATE");
+        };
+        const handleAction = (type, row) => {
+          modalAction.value.type = type;
+          modalAction.value.row = row;
+          const params = new URLSearchParams({
+            ref_no: row.refNo || "", property: row.property || "", payor: row.payor || "",
+            msp: row.msp || "", service_type: row.serviceType || "", sector: row.sector || "",
+            noa_url: row.pdfLink || ""
+          });
+          if (type === 'Contract') {
+            modalAction.value.actionName = "Request for Main Contract & Other";
+            modalAction.value.url = `${LINK_CONTRACT}?${params}`;
+          } else if (type === 'Rate') {
+            modalAction.value.actionName = "Request for Rate Amendment";
+            modalAction.value.url = `${LINK_RATE}?${params}`;
+          }
+          showModal.value = true; 
+        };
+        const proceedWithAction = () => {
+          if (modalAction.value.url) {
+            window.open(modalAction.value.url, '_blank');
+            showModal.value = false;
+          }
+        };
+
+        const closeModal = () => showModal.value = false;
+
+        const userHasProperty = (prop) => {
+          if (!currentUser.value || !currentUser.value.properties) return false;
+          return currentUser.value.properties.includes(prop);
+        };
+
+        const openAddPropertyModal = () => {
+          selectedNewProps.value = []; // Reset selection
+          showAddPropModal.value = true;
+          
+          if (availableProperties.value.length === 0) {
+            google.script.run.withSuccessHandler(props => {
+              availableProperties.value = props;
+            }).getPropertyOptions();
+          }
+        };
+
+        const submitAddProperty = () => {
+          if (selectedNewProps.value.length === 0) return;
+          
+          isLoading.value = true; 
+          
+          const token = getAuthToken();
+          
+          google.script.run
+            .withSuccessHandler(res => {
+              isLoading.value = false;
+              
+              showAddPropModal.value = false;
+              
+              if (res.success) {
+                showAlert('success', res.message);
+                selectedNewProps.value = [];
+              } else {
+                showAlert('error', res.message);
+              }
+            })
+            .withFailureHandler(err => {
+              isLoading.value = false;
+              showAddPropModal.value = false; 
+              showAlert('error', "Network error. Please try again.");
+            })
+            .requestAdditionalProperties(token, JSON.parse(JSON.stringify(selectedNewProps.value)));
+        };
+
+        const checkAndShowNotifications = (alerts) => {
+          if (alerts && (alerts.approved.length > 0 || alerts.rejected.length > 0)) {
+            notifications.value = alerts;
+            showNotificationModal.value = true;
+          }
+        };
+
+        const getAuthToken = () => {
+          return localStorage.getItem('noa_auth_token') || sessionStorage.getItem('noa_auth_token');
+        };
+
+        // --- LIFECYCLE ---
+        onMounted(() => {
+          checkSession(); 
+          
+          window.addEventListener('focus', () => {
+              if (view.value === 'dashboard') {
+                fetchData(true);
+                backgroundUserCheck();
+              }
+          });
+
+          pollingInterval = setInterval(() => {
+            if (view.value === 'dashboard') {
+              fetchData(true); 
+              backgroundUserCheck();
+            }
+          }, 5000);
+        });
+
+        onUnmounted(() => {
+          if (pollingInterval) clearInterval(pollingInterval);
+        });
+
+        const backgroundUserCheck = () => {
+          const token = getAuthToken();
+          if (!token) return;
+
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res.valid && currentUser.value) {
+                
+                const oldProps = currentUser.value.properties || [];
+                const newProps = res.user.properties || [];
+
+                if (newProps.length > oldProps.length) {
+                  
+                  const newlyAdded = newProps.filter(x => !oldProps.includes(x));
+                  
+                  currentUser.value.properties = newProps;
+                  
+                  showAlert('success', `ACCESS APPROVED! New properties added: ${newlyAdded.join(', ')}`);
+                  
+                  fetchData(true);
+                }
+                
+                if (newProps.length < oldProps.length) {
+                  currentUser.value.properties = newProps;
+                  showAlert('error', 'NOTICE: Some property access has been revoked by Admin.');
+                  fetchData(true);
+                }
+
+              } else if (!res.valid) {
+                handleLogout("Session invalidated by Admin.");
+              }
+            })
+            .withFailureHandler(err => console.log("Background check failed", err))
+            .verifySession(token); 
+        };
+
+        return {
+          view, authLoading, currentUser, loginForm, regForm, recoveryForm, recoveryStep,
+          showPass, showRegPass, availableProperties, passwordStrength, isRegValid, alert,
+          handleLogin, handleRegister, handleRecovery, initRegister, handleLogout, showLogoutModal, confirmLogout,
+          isLoading, isRefreshing, allData, filteredData, filters, activeStatus,
+          uniqueProperties, uniqueSectors, uniquePayors, uniqueMsps, showModal, modalAction,
+          countStatus, getStatusBadge, resetFilters, handleAction, proceedWithAction, closeModal,
+          shouldShowContractBtn, shouldShowRateBtn, fetchData, showAddPropModal, selectedNewProps,
+          openAddPropertyModal, submitAddProperty, userHasProperty, backgroundUserCheck,
+          showNotificationModal, notifications
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
