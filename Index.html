@@ -533,21 +533,26 @@
         <div class="bg-white rounded-lg shadow flex-grow overflow-hidden border border-gray-200 flex flex-col">
           <div class="overflow-auto table-container flex-grow">
             <table class="min-w-full text-left border-collapse">
-              <thead class="bg-gray-100 sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">Status</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">
-                    {{ activeStatus === 'Disapproved' ? 'Reason' : 'Action' }}
-                  </th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Timestamp</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Ref #</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Property / Sector</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Companies</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Details</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">NOA Link</th>
-                  <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Released By</th>
-                </tr>
-              </thead>
+             <thead class="bg-gray-100 sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">Status</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b">
+                  {{ activeStatus === 'Disapproved' ? 'Reason' : 'Action' }}
+                </th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Timestamp</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Ref #</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Property / Sector</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Companies</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">Details</th>
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">NOA Link</th>
+                
+                <th v-if="activeStatus === 'Validated with Action Done'" class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">MSP Ref#</th>
+
+                <th class="p-3 text-xs font-bold text-gray-600 uppercase border-b whitespace-nowrap">
+                  {{ activeStatus === 'Validated with Action Done' ? 'Action Done By' : 'Released By' }}
+                </th>
+              </tr>
+             </thead>
               <tbody class="divide-y divide-gray-100">
                 <tr v-for="(row, index) in filteredData" :key="index" class="hover:bg-blue-50 transition">
                   
@@ -579,12 +584,29 @@
                   </td>
   
                   <td class="p-3 text-xs text-gray-600 align-top whitespace-nowrap">
-                    {{ row.timestamp }}
-                    
-                    <div v-if="row.status === 'Validated with Pending Action'" class="mt-1">
-                        <span class="bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                          <i class="fas fa-hourglass-half mr-1"></i>{{ getDaysAge(row.timestamp) }} Days
-                        </span>
+     
+                    <div v-if="row.status === 'Validated with Action Done'">
+                        <div class="font-bold text-gray-700">{{ row.actionDate }}</div>
+                        <div class="text-[10px] text-gray-400 mt-1">Date Answered</div>
+                        
+                        <div class="mt-2 pt-1 border-t border-gray-200">
+                          <span class="text-[9px] font-bold text-blue-600 uppercase">
+                            TAT: {{ calculateTAT(row.timestamp, row.actionDate) }} Days
+                          </span>
+                        </div>
+                    </div>
+
+                    <div v-else-if="row.status === 'Validated with Pending Action'">
+                        {{ row.timestamp }}
+                        <div class="mt-1">
+                          <span class="bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                            <i class="fas fa-hourglass-half mr-1"></i>{{ getDaysAge(row.timestamp) }} Days
+                          </span>
+                      </div>
+                    </div>
+
+                    <div v-else>
+                        {{ row.timestamp }}
                     </div>
                   </td>
   
@@ -608,7 +630,6 @@
                     <div class="text-[10px] text-gray-400 mt-1">
                       {{ row.startDate }} <i class="fas fa-arrow-right mx-1"></i> {{ row.endDate }}
                     </div>
-
                     <div v-if="row.status === 'Pending'" class="mt-2 pt-2 border-t border-dashed border-gray-200">
                       <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Age / TAT:</span>
                       <div class="text-xs font-bold text-gray-800">{{ row.turnAroundTime || "-" }}</div>
@@ -622,8 +643,20 @@
                     <span v-else class="text-gray-300">-</span>
                   </td>
   
+                  <td v-if="activeStatus === 'Validated with Action Done'" class="p-3 align-top">
+                    <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 text-xs font-bold font-mono">
+                      {{ row.mspRefNo }}
+                    </span>
+                  </td>
+
                   <td class="p-3 text-xs text-gray-600 align-top">
-                    {{ row.releasedBy }}
+                    <div v-if="activeStatus === 'Validated with Action Done'" class="flex flex-col">
+                      <span class="font-semibold text-gray-800">{{ row.actionDoneBy }}</span>
+                      <span class="text-[9px] text-gray-400 italic">Form Responder</span>
+                    </div>
+                    <div v-else>
+                      {{ row.releasedBy }}
+                    </div>
                   </td>
   
                 </tr>
@@ -914,7 +947,18 @@
           if (filters.value.payor) data = data.filter(item => item.payor === filters.value.payor);
           if (filters.value.msp) data = data.filter(item => item.msp === filters.value.msp);
 
-          return data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          // 3. SORTING
+          return data.sort((a, b) => {
+            let dateA = a.timestamp;
+            let dateB = b.timestamp;
+
+            if (activeStatus.value === 'Validated with Action Done') {
+               dateA = a.actionDate || a.timestamp; 
+               dateB = b.actionDate || b.timestamp;
+            }
+
+            return new Date(dateB) - new Date(dateA);
+          });
         });
 
         // --- HELPERS (Unchanged) ---
@@ -927,8 +971,20 @@
           return diffDays;
         };
 
+        const calculateTAT = (reqDate, ansDate) => {
+          if (!reqDate || !ansDate) return "-";
+          
+          const start = new Date(reqDate);
+          const end = new Date(ansDate);
+          const diffTime = end - start;
+          
+          const diffDays = (diffTime / (1000 * 60 * 60 * 24)).toFixed(0); 
+          
+          if (diffDays < 0) return "0"; 
+          return diffDays;
+        };
+
         const countStatus = (status) => {
-           // Must check against filtered data for accuracy based on user permissions
            let data = allData.value;
            if (currentUser.value && currentUser.value.properties && currentUser.value.properties.length > 0) {
               data = data.filter(item => currentUser.value.properties.includes(item.property));
@@ -1107,7 +1163,7 @@
           countStatus, getStatusBadge, resetFilters, handleAction, proceedWithAction, closeModal,
           shouldShowContractBtn, shouldShowRateBtn, fetchData, showAddPropModal, selectedNewProps,
           openAddPropertyModal, submitAddProperty, userHasProperty, backgroundUserCheck,
-          showNotificationModal, notifications, getDaysAge
+          showNotificationModal, notifications, getDaysAge, calculateTAT
         };
       }
     }).mount('#app');
