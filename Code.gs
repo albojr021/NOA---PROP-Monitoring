@@ -1,5 +1,5 @@
-const DB_ID = "1dBO8ThI7FEKb24D9sPVWokfXLuWUx5aCQvisrT9wBvI";
-const USERS_SHEET = "NOA-PROP";
+const DB_ID = "1532CDxSJAzugS7jFzoXQnnj7eWYfym6sIBhEl56Dnsc";
+const USERS_SHEET = "NOA-PROP_User";
 const ADMIN_EMAIL = "mcddatamanagement.cog@megaworld-lifestyle.com";
 
 function doGet() {
@@ -323,11 +323,11 @@ function recoverPassword(email, secQuestion, secAnswer, newPassword) {
 }
 
 function getData() {
-  const ss = SpreadsheetApp.openById("1m7bOgXL4UJHUd0euaYMguAakhhuElRPxBqZ6R_GTRj4");
+  const ss = SpreadsheetApp.openById("1bvs1dG7XKyMprRxYPsVj8IrsARY2ldsSrR_obUhZ0Uk");
   const ws = ss.getSheetByName("Form Responses 1");
   const lastRow = ws.getLastRow();
   
-  const ssAction = SpreadsheetApp.openById("1Aa2O2XVinhL7x2zaBlCgpAcv7IcLAcqeUgGVfRNidzw");
+  const ssAction = SpreadsheetApp.openById("1XwKrO4wXaqTtn5eE_qCsUorO7tXMlTYKvM8JlngpQ84");
   const wsAction = ssAction.getSheetByName("LE UNIFICADO");
   
   let validRefsInUnificado = new Set();
