@@ -656,10 +656,26 @@
                   </td>
   
                   <td v-if="activeStatus === 'Validated with Action Done'" class="p-3 align-top">
-                    <span v-if="row.mspRefNo && row.mspRefNo.toString().toUpperCase() !== 'REJECTED'" 
-                          class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 text-xs font-bold font-mono">
-                      {{ row.mspRefNo }}
-                    </span>
+                    <div v-if="row.unificadoDetails && row.unificadoDetails.length > 0" class="flex flex-col gap-3">
+                      
+                      <div v-for="(detail, index) in row.unificadoDetails" :key="index" 
+                           class="flex flex-col gap-1"
+                           :class="{'border-b border-gray-200 pb-2': index !== row.unificadoDetails.length - 1}">
+                        
+                        <span v-if="detail.colB" 
+                              :class="detail.colB.toString().toUpperCase().includes('REJECTED') ? 'bg-red-50 text-red-700 border-red-200' : 'bg-indigo-50 text-indigo-700 border-indigo-100'"
+                              class="px-2 py-1 rounded border text-[10px] font-bold text-center inline-block uppercase">
+                          {{ detail.colB }}
+                        </span>
+
+                        <span v-if="detail.colC" class="text-[10px] text-gray-600 font-semibold text-center bg-gray-50 border border-gray-200 px-2 py-1 rounded">
+                          {{ detail.colC }}
+                        </span>
+
+                      </div>
+                      
+                    </div>
+                    <span v-else class="text-gray-300">-</span>
                   </td>
 
                   <td v-if="activeStatus !== 'Validated with Action Done'" class="p-3 text-xs text-gray-600 align-top">
