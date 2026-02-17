@@ -342,10 +342,16 @@ function getData() {
       const refNo = r[0] ? r[0].trim() : "";
       if(refNo) {
         validRefsInUnificado.add(refNo);
-        // Map RefNo to Details
-        actionDetailsMap.set(refNo, {
+        
+        if (!actionDetailsMap.has(refNo)) {
+          actionDetailsMap.set(refNo, []);
+        }
+        
+        actionDetailsMap.get(refNo).push({
           timestamp: r[18], // Col S
-          email: r[19]      // Col T
+          email: r[19],     // Col T
+          colB: r[1] ? r[1].toString().trim() : "",  // Column B
+          colC: r[2] ? r[2].toString().trim() : ""   // Column C
         });
       }
     });
@@ -388,11 +394,25 @@ function getData() {
 
     let actionDoneBy = "";
     let actionDate = "";
+    let unificadoDetails = [];
     
     if (actionDetailsMap.has(refNo)) {
-      const details = actionDetailsMap.get(refNo);
-      actionDoneBy = details.email;
-      actionDate = details.timestamp;
+      const rawDetails = actionDetailsMap.get(refNo);
+      
+      if (rawDetails.length > 1) {
+        
+        const nonRejectedDetails = rawDetails.filter(d => !d.colB.toUpperCase().includes("REJECTED"));
+        
+        unificadoDetails = nonRejectedDetails.length > 0 ? nonRejectedDetails : rawDetails;
+        
+      } else {
+        unificadoDetails = rawDetails;
+      }
+      
+      if (unificadoDetails.length > 0) {
+        actionDoneBy = unificadoDetails[unificadoDetails.length - 1].email;
+        actionDate = unificadoDetails[unificadoDetails.length - 1].timestamp;
+      }
     }
 
     return {
@@ -406,15 +426,16 @@ function getData() {
       endDate: row[8],
       kindOfNoa: row[9],
       sector: row[12],
-      turnAroundTime: row[20], // Col U (TAT)
+      turnAroundTime: row[20], 
       refNo: row[23],
       pdfLink: row[24],
-      disapprovalReason: row[25], // Col Z
-      mspRefNo: row[30],          // Col AE (MSP Ref #)
+      disapprovalReason: row[25], 
+      mspRefNo: row[30],          
       status: status,
       
       actionDoneBy: actionDoneBy,
-      actionDate: actionDate
+      actionDate: actionDate,
+      unificadoDetails: unificadoDetails 
     };
   })
   .filter(item => item !== null);
