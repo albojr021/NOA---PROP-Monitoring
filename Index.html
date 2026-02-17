@@ -644,7 +644,8 @@
                   </td>
   
                   <td v-if="activeStatus === 'Validated with Action Done'" class="p-3 align-top">
-                    <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 text-xs font-bold font-mono">
+                    <span v-if="row.mspRefNo && row.mspRefNo.toString().toUpperCase() !== 'REJECTED'" 
+                          class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 text-xs font-bold font-mono">
                       {{ row.mspRefNo }}
                     </span>
                   </td>
@@ -710,8 +711,8 @@
         const modalAction = ref({ type: '', actionName: '', row: null, url: '' });
 
         // --- CONSTANTS ---
-        const LINK_CONTRACT = "https://script.google.com/a/macros/megaworld-lifestyle.com/s/AKfycbzaxLUWAvcWwJ0xDTw4QCb0wMdX1efJ9XVXHKnN02eMRl2_8TVIzD8Gv8pVpJ0Orhw/exec";
-        const LINK_RATE = "https://script.google.com/a/macros/megaworld-lifestyle.com/s/AKfycbz3perZUpwMKA7B5v9AMOX11Gs2qkibJ1jLSO64uI4mtRDA7tZ5b8_Um0K4onxDdrC0/exec";
+        const LINK_CONTRACT = "https://script.google.com/macros/s/AKfycbz60C2Z7fCJYlLlEZsf0TV-E-1dNRJiESIWux1BSEx8rp1I7BBGAab59pRwOAOHJsBJsA/exec";
+        const LINK_RATE = "https://script.google.com/macros/s/AKfycbxxpofej64AVg3iIjwPnMOv-x7TMxOvvQvVajRS8EocsgXaaBhsN8oLVVTiL2OEOQrqnw/exec";
 
         // --- REACTIVE VARIABLES ---
         const showAddPropModal = ref(false);
@@ -986,9 +987,16 @@
 
         const countStatus = (status) => {
            let data = allData.value;
+
            if (currentUser.value && currentUser.value.properties && currentUser.value.properties.length > 0) {
-              data = data.filter(item => currentUser.value.properties.includes(item.property));
+             data = data.filter(item => currentUser.value.properties.includes(item.property));
            }
+
+           if (filters.value.property) data = data.filter(item => item.property === filters.value.property);
+           if (filters.value.sector) data = data.filter(item => item.sector === filters.value.sector);
+           if (filters.value.payor) data = data.filter(item => item.payor === filters.value.payor);
+           if (filters.value.msp) data = data.filter(item => item.msp === filters.value.msp);
+
            return data.filter(d => d.status === status).length;
         };
         const getStatusBadge = (status) => {
@@ -1002,7 +1010,6 @@
         };
         const resetFilters = () => {
           filters.value = { property: "", sector: "", payor: "", msp: "" };
-          activeStatus.value = 'All';
         };
         const shouldShowContractBtn = (kind) => {
           if (!kind) return true; 
